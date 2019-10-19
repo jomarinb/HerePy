@@ -12,11 +12,14 @@ from herepy.error import HEREError
 from herepy.models import RoutingResponse, RoutingMatrixResponse
 from herepy.here_enum import RouteMode
 
+
 class RoutingApi(HEREApi):
     """A python interface into the HERE Routing API"""
 
     URL_CALCULATE_ROUTE = 'https://route.cit.api.here.com/routing/7.2/calculateroute.json'
     URL_CALCULATE_MATRIX = 'https://matrix.route.api.here.com/routing/7.2/calculatematrix.json'
+
+    DEPARTURE_NOW = 'now'
 
     def __init__(self,
                  app_id=None,
@@ -55,13 +58,13 @@ class RoutingApi(HEREApi):
     def __array_to_waypoint(cls, waypoint_a):
         return str.format('geo!{0},{1}', waypoint_a[0], waypoint_a[1])
 
-    def _route(self, waypoint_a, waypoint_b, modes=None):
+    def _route(self, waypoint_a, waypoint_b, modes=None, departure=DEPARTURE_NOW):
         data = {'waypoint0': self.__array_to_waypoint(waypoint_a),
                 'waypoint1': self.__array_to_waypoint(waypoint_b),
                 'mode': self.__prepare_mode_values(modes),
                 'app_id': self._app_id,
                 'app_code': self._app_code,
-                'departure': 'now'}
+                'departure': departure}
         response = self.__get(self.URL_CALCULATE_ROUTE, data, RoutingResponse)
         route = response.response["route"]
         maneuver = route[0]["leg"][0]["maneuver"]
@@ -81,9 +84,9 @@ class RoutingApi(HEREApi):
         return response
 
     def bicycle_route(self,
-                  waypoint_a,
-                  waypoint_b,
-                  modes=None):
+                      waypoint_a,
+                      waypoint_b,
+                      modes=None):
         """Request a bicycle route between two points
         Args:
           waypoint_a (array):
@@ -104,7 +107,8 @@ class RoutingApi(HEREApi):
     def car_route(self,
                   waypoint_a,
                   waypoint_b,
-                  modes=None):
+                  modes=None,
+                  departure=DEPARTURE_NOW):
         """Request a driving route between two points
         Args:
           waypoint_a (array):
@@ -113,6 +117,8 @@ class RoutingApi(HEREApi):
             array including latitude and longitude in order.
           modes (array):
             array including RouteMode enums.
+          departure (str):
+            string representing the time when the travel is expected to start, e.g: '2018-07-04T17:00:00+02'
         Returns:
           RoutingResponse
         Raises:
@@ -120,7 +126,7 @@ class RoutingApi(HEREApi):
 
         if modes is None:
             modes = [RouteMode.car, RouteMode.fastest]
-        return self._route(waypoint_a, waypoint_b, modes)
+        return self._route(waypoint_a, waypoint_b, modes, departure)
 
     def pedastrian_route(self,
                          waypoint_a,
@@ -170,19 +176,18 @@ class RoutingApi(HEREApi):
     def public_transport(self,
                          waypoint_a,
                          waypoint_b,
-                         combine_change,
-                         modes=None):
+                         modes=None,
+                         departure=DEPARTURE_NOW):
         """Request a public transport route between two points
         Args:
           waypoint_a (array):
             Starting array including latitude and longitude in order.
           waypoint_b (array):
             Intermediate array including latitude and longitude in order.
-          combine_change (bool):
-            Enables the change manuever in the route response, which
-            indicates a public transit line change.
           modes (array):
             array including RouteMode enums.
+          departure (str):
+            string representing the time when the travel is expected to start, e.g: '2018-07-04T17:00:00+02'
         Returns:
           RoutingResponse
         Raises:
@@ -190,22 +195,18 @@ class RoutingApi(HEREApi):
 
         if modes is None:
             modes = [RouteMode.publicTransport, RouteMode.fastest]
-        return self._route(waypoint_a, waypoint_b, modes)
+        return self._route(waypoint_a, waypoint_b, modes, departure)
 
     def public_transport_timetable(self,
-                         waypoint_a,
-                         waypoint_b,
-                         combine_change,
-                         modes=None):
+                                   waypoint_a,
+                                   waypoint_b,
+                                   modes=None):
         """Request a public transport route between two points based on timetables
         Args:
           waypoint_a (array):
             Starting array including latitude and longitude in order.
           waypoint_b (array):
             Intermediate array including latitude and longitude in order.
-          combine_change (bool):
-            Enables the change manuever in the route response, which
-            indicates a public transit line change.
           modes (array):
             array including RouteMode enums.
         Returns:
@@ -316,7 +317,7 @@ class RoutingApi(HEREApi):
 
     @staticmethod
     def _get_route_from_public_transport_line(
-        public_transport_line_segment
+            public_transport_line_segment
     ):
         """Extract a short route description from the public transport lines."""
         lines = []
@@ -359,9 +360,7 @@ class RoutingApi(HEREApi):
         return route
 
 
-
 class InvalidCredentialsError(HEREError):
-
     """Invalid Credentials Error Type.
 
     This error is returned if the specified token was invalid or no contract
@@ -370,7 +369,6 @@ class InvalidCredentialsError(HEREError):
 
 
 class InvalidInputDataError(HEREError):
-
     """Invalid Input Data Error Type.
 
     This error is returned if the specified request parameters contain invalid
@@ -380,7 +378,6 @@ class InvalidInputDataError(HEREError):
 
 
 class WaypointNotFoundError(HEREError):
-
     """Waypoint not found Error Type.
 
     This error indicates that one of the requested waypoints
@@ -389,7 +386,6 @@ class WaypointNotFoundError(HEREError):
 
 
 class NoRouteFoundError(HEREError):
-
     """No Route Found Error Type.
 
     This error indicates that no route could be constructed based on the input
@@ -398,7 +394,6 @@ class NoRouteFoundError(HEREError):
 
 
 class LinkIdNotFoundError(HEREError):
-
     """Link Not Found Error Type.
 
     This error indicates that a link ID passed as input parameter could not be
@@ -407,7 +402,6 @@ class LinkIdNotFoundError(HEREError):
 
 
 class RouteNotReconstructedError(HEREError):
-
     """Route Not Reconstructed Error Type.
 
     This error indicates that the RouteId is invalid (RouteId can not be
@@ -415,6 +409,7 @@ class RouteNotReconstructedError(HEREError):
     RouteId. In every case a mitigation is to re-run CalculateRoute request to
     acquire a new proper RouteId.
     """
+
 
 # pylint: disable=R0911
 def error_from_routing_service_error(json_data):
